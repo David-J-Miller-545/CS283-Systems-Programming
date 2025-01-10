@@ -38,5 +38,9 @@ Please provide answers to these questions using markdown notation and place them
 https://github.com/David-J-Miller-545/CS283-Systems-Programming
 
 4. Briefly describe what you want to get out of this class.
+I would like to just more experience with understanding system architecture, programming, linux, and maybe a lower level
+understanding of C.
 
 5. Briefly describe any concerns you might be having with being successful in this class (if any).
+The only issue I might have is just remembering C but that should happen relatively early on so other than that I think
+I am good.
