@@ -12,12 +12,20 @@ int  setup_buff(char *, char *, int);
 
 //prototypes for functions to handle required functionality
 int  count_words(char *, int, int);
+int  rev_chars(char *, int, int);
+int  print_words(char *, int, int);
 //add additional prototypes here
 
 
 int setup_buff(char *buff, char *user_str, int len){
-    //TODO: #4:  Implement the setup buff as per the directions
-    return 0; //for now just so the code compiles. 
+    //TODO: #4:  Implement the setup buff as per the directions 
+    for (int i = 0; i < len; i ++){
+        *(buff + i) = *(user_str + i);
+        if (*(user_str + i) == '\0') {
+            return i;
+        }
+    }
+    return -1;
 }
 
 void print_buff(char *buff, int len){
@@ -35,6 +43,69 @@ void usage(char *exename){
 
 int count_words(char *buff, int len, int str_len){
     //YOU MUST IMPLEMENT
+    if (str_len > len) {
+        return -1;
+    }
+    else if (str_len == 0) {
+        return 0;
+    }
+
+    int word_count = 0;
+    int at_start = 1;
+
+    for (int i = 0; i > str_len; i++) {
+        char c = *(buff + i);
+        if (c != ' ' && at_start) {
+            word_count++;
+            at_start = 0;
+        }
+
+        if (c == ' ') {
+            at_start = 1;
+        }
+    }
+
+    return word_count;
+}
+
+int print_words(char *buff, int len, int str_len){
+    //YOU MUST IMPLEMENT
+    if (str_len > len) {
+        return -1;
+    }
+    else if (str_len == 0) {
+        return 0;
+    }
+
+    int word_count = 0;
+    int char_count = 0;
+    int at_start = 1;
+
+    for (int i = 0; i > str_len; i++) {
+        char c = *(buff + i);
+        if (c != ' ' && at_start) {
+            word_count++;
+            at_start = 0;
+            printf("%d. ", word_count);
+        }
+
+        if (c == ' ') {
+            printf(" (%d)\n", char_count);
+            char_count = 0;
+            at_start = 1;
+        }
+        else {
+            printf(c);
+            char_count++;
+        }
+    }
+
+    return word_count;
+}
+
+int rev_chars(char *buff, int len, int str_len){
+    //YOU MUST IMPLEMENT
+
     return 0;
 }
 
@@ -78,6 +149,11 @@ int main(int argc, char *argv[]){
     //          handle error if malloc fails by exiting with a 
     //          return code of 99
     // CODE GOES HERE FOR #3
+    int *buff = malloc(BUFFER_SZ*sizeof(char));
+
+    if (buff == NULL) {
+        exit(99);
+    }
 
 
     user_str_len = setup_buff(buff, input_string, BUFFER_SZ);     //see todos
@@ -89,6 +165,22 @@ int main(int argc, char *argv[]){
     switch (opt){
         case 'c':
             rc = count_words(buff, BUFFER_SZ, user_str_len);  //you need to implement
+            if (rc < 0){
+                printf("Error counting words, rc = %d", rc);
+                exit(2);
+            }
+            printf("Word Count: %d\n", rc);
+            break;
+        case 'r':
+            rc = rev_chars(buff, BUFFER_SZ, user_str_len);  //you need to implement
+            if (rc < 0){
+                printf("Error reversing characters, rc = %d", rc);
+                exit(2);
+            }
+            printf("Word Count: %d\n", rc); //Should print reved chars instead of wordcount
+            break;
+        case 'w':
+            rc = print_words(buff, BUFFER_SZ, user_str_len);  //you need to implement
             if (rc < 0){
                 printf("Error counting words, rc = %d", rc);
                 exit(2);
