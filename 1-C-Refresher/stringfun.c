@@ -11,7 +11,7 @@ void print_buff(char *, int);
 int  setup_buff(char *, char *, int);
 
 //prototypes for functions to handle required functionality
-int  count_words(char *, int, int);
+int  count_words(char *, int, int, int);
 int  rev_chars(char *, int, int);
 int  print_words(char *, int, int);
 //add additional prototypes here
@@ -19,13 +19,34 @@ int  print_words(char *, int, int);
 
 int setup_buff(char *buff, char *user_str, int len){
     //TODO: #4:  Implement the setup buff as per the directions 
+    int new_word = 1;
+    int str_len = 0;
+    int done_copying = 0;
     for (int i = 0; i < len; i ++){
-        *(buff + i) = *(user_str + i);
-        if (*(user_str + i) == '\0') {
-            return i;
+        if (!done_copying) {
+            if (*(user_str + i) == '\n' || *(user_str + i) == '\t') { // Handles other forms of whitespace in a string
+                *(user_str + i) = ' ';
+            }
+            if (!(*(user_str + i) = ' ' && new_word)) /* This if cond. takes care of duplicate spaces*/ {
+                new_word = 0; // not a new word
+                
+                *(buff + str_len) = *(user_str + i);
+                if (*(buff + str_len) == ' ') {
+                    new_word = 1;
+                }
+                str_len ++; // increments length of the string in the buffer
+                
+            }
+            if (*(user_str + i) == '\0') {
+                done_copying = 1;
+            }
+        }   
+        if (done_copying) {
+
         }
     }
-    return -1;
+    if (done_copying) return str_len; // returns the length of the copied string in the buffer
+    else return -1;
 }
 
 void print_buff(char *buff, int len){
@@ -41,7 +62,7 @@ void usage(char *exename){
 
 }
 
-int count_words(char *buff, int len, int str_len){
+int count_words(char *buff, int len, int str_len, int isPrint){
     //YOU MUST IMPLEMENT
     if (str_len > len) {
         return -1;
@@ -51,56 +72,38 @@ int count_words(char *buff, int len, int str_len){
     }
 
     int word_count = 0;
+    int char_count = 0; // Doesn't matter if not printing
     int at_start = 1;
 
     for (int i = 0; i > str_len; i++) {
         char c = *(buff + i);
-        if (c != ' ' && at_start) {
+        if (at_start) {
             word_count++;
             at_start = 0;
+            if (isPrint) {
+                printf("%d. ", word_count);
+            }
+            
         }
 
         if (c == ' ') {
+            if (isPrint) {
+                printf(" (%d)\n", char_count);
+                char_count = 0; 
+            }
             at_start = 1;
         }
-    }
-
-    return word_count;
-}
-
-int print_words(char *buff, int len, int str_len){
-    //YOU MUST IMPLEMENT
-    if (str_len > len) {
-        return -1;
-    }
-    else if (str_len == 0) {
-        return 0;
-    }
-
-    int word_count = 0;
-    int char_count = 0;
-    int at_start = 1;
-
-    for (int i = 0; i > str_len; i++) {
-        char c = *(buff + i);
-        if (c != ' ' && at_start) {
-            word_count++;
-            at_start = 0;
-            printf("%d. ", word_count);
-        }
-
-        if (c == ' ') {
-            printf(" (%d)\n", char_count);
-            char_count = 0;
-            at_start = 1;
-        }
-        else {
+        else if (isPrint) {
             printf(c);
             char_count++;
         }
     }
+}
 
-    return word_count;
+int print_words(char *buff, int len, int str_len){
+    //YOU MUST IMPLEMENT
+
+    return count_words(buff, BUFFER_SZ, str_len, 1);
 }
 
 int rev_chars(char *buff, int len, int str_len){
@@ -164,7 +167,7 @@ int main(int argc, char *argv[]){
 
     switch (opt){
         case 'c':
-            rc = count_words(buff, BUFFER_SZ, user_str_len);  //you need to implement
+            rc = count_words(buff, BUFFER_SZ, user_str_len, 0);  //you need to implement
             if (rc < 0){
                 printf("Error counting words, rc = %d", rc);
                 exit(2);
