@@ -233,4 +233,6 @@ int main(int argc, char *argv[]){
 //          is a good practice, after all we know from main() that 
 //          the buff variable will have exactly 50 bytes?
 //  
-//          PLACE YOUR ANSWER HERE
+/*          It is good practice because we can verify that the length is less than the buff to ensure that our code
+            is running as intended and that we don't start accessing bad memory.
+*/
