@@ -27,14 +27,11 @@ int setup_buff(char *buff, char *user_str, int len){
     int str_i = 0;
     int buff_i = 0;
     while (buff_i < len) {
-        if (!done_copying) {
+        if (done_copying == 0) {
             if (*(user_str + str_i) == '\n' || *(user_str + str_i) == '\t') { // Handles other forms of whitespace in a string
                 *(user_str + str_i) = ' ';
             }
-            if (*(user_str + str_i) == '\0') {
-                done_copying = 1;
-            }
-            if (!(*(user_str + str_i) = ' ' && new_word)) /* This if cond. takes care of duplicate spaces*/ {
+            if (!(*(user_str + str_i) == ' ' && new_word == 1)) /* This if cond. takes care of duplicate spaces*/ {
                 new_word = 0; // not a new word
                 
                 *(buff + str_len) = *(user_str + str_i);
@@ -45,23 +42,29 @@ int setup_buff(char *buff, char *user_str, int len){
                 buff_i ++;
             }
             str_i++;
+            if (*(user_str + str_i) == '\0') {
+                done_copying = 1;
+                if (*(buff + str_len - 1) == ' ') {
+                    buff_i--;
+                    str_len--;
+                }
+            }
         }   
-        if (done_copying) {
+        if (done_copying == 1) {
             *(buff + buff_i) = '.';
             buff_i ++;
-        }
-        
+        }        
     }
     if (done_copying) return str_len; // returns the length of the copied string in the buffer
     else return -1;
 }
 
 void print_buff(char *buff, int len){
-    printf("Buffer:  ");
+    printf("Buffer:  [");
     for (int i=0; i<len; i++){
         putchar(*(buff+i));
     }
-    putchar('\n');
+    printf("]\n");
 }
 
 void usage(char *exename){
@@ -87,29 +90,34 @@ int count_words(char *buff, int len, int str_len, int isPrint){
         if (at_start) {
             word_count++;
             at_start = 0;
-            if (isPrint) {
+            if (isPrint == 1) {
                 printf("%d. ", word_count);
             }
             
         }
 
         if (c == ' ') {
-            if (isPrint) {
-                printf(" (%d)\n", char_count);
+            if (isPrint == 1) {
+                printf("(%d)\n", char_count);
                 char_count = 0; 
             }
             at_start = 1;
         }
-        else if (isPrint) {
+        else if (isPrint == 1) {
             putchar(c);
             char_count++;
         }
     }
+    if (isPrint == 1) {
+        printf("(%d)\n", char_count);
+        char_count = 0; 
+    }
+    return word_count;
 }
 
 int print_words(char *buff, int len, int str_len){
     //YOU MUST IMPLEMENT
-
+    printf("Word Print\n----------\n");
     return count_words(buff, BUFFER_SZ, str_len, 1);
 }
 
@@ -164,7 +172,7 @@ int main(int argc, char *argv[]){
     //          handle error if malloc fails by exiting with a 
     //          return code of 99
     // CODE GOES HERE FOR #3
-    int *buff = malloc(BUFFER_SZ*sizeof(char));
+    buff = malloc(BUFFER_SZ*sizeof(char));
 
     if (buff == NULL) {
         exit(99);
@@ -192,7 +200,6 @@ int main(int argc, char *argv[]){
                 printf("Error reversing characters, rc = %d", rc);
                 exit(2);
             }
-            printf("Word Count: %d\n", rc); //Should print reved chars instead of wordcount
             break;
         case 'w':
             rc = print_words(buff, BUFFER_SZ, user_str_len);  //you need to implement
@@ -200,8 +207,11 @@ int main(int argc, char *argv[]){
                 printf("Error counting words, rc = %d", rc);
                 exit(2);
             }
-            printf("Word Count: %d\n", rc);
+            printf("\nNumber of words returned: %d\n", rc);
             break;
+        case 'x':
+            printf("Not Implemented!");
+            exit(3);
 
         //TODO:  #5 Implement the other cases for 'r' and 'w' by extending
         //       the case statement options
