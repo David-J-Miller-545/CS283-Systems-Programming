@@ -143,7 +143,9 @@ int main(int argc, char *argv[]){
     int  user_str_len;      //length of user supplied string
 
     //TODO:  #1. WHY IS THIS SAFE, aka what if arv[1] does not exist?
-    //      PLACE A COMMENT BLOCK HERE EXPLAINING
+    //      This is safe because the first condition in the or statement verifies that there are more than 2
+    //      arguments within the command, thus meaning if there wasn't, the second condition would not be checked
+    //      and therefore not access bad memory.
     if ((argc < 2) || (*argv[1] != '-')){
         usage(argv[0]);
         exit(1);
@@ -160,7 +162,8 @@ int main(int argc, char *argv[]){
     //WE NOW WILL HANDLE THE REQUIRED OPERATIONS
 
     //TODO:  #2 Document the purpose of the if statement below
-    //      PLACE A COMMENT BLOCK HERE EXPLAINING
+    //      The purpose of the statement below is to ensure that the command given has enough arguments to run
+    //      the program.
     if (argc < 3){
         usage(argv[0]);
         exit(1);
@@ -171,7 +174,6 @@ int main(int argc, char *argv[]){
     //TODO:  #3 Allocate space for the buffer using malloc and
     //          handle error if malloc fails by exiting with a 
     //          return code of 99
-    // CODE GOES HERE FOR #3
     buff = malloc(BUFFER_SZ*sizeof(char));
 
     if (buff == NULL) {
@@ -179,7 +181,7 @@ int main(int argc, char *argv[]){
     }
 
 
-    user_str_len = setup_buff(buff, input_string, BUFFER_SZ);     //see todos
+    user_str_len = setup_buff(buff, input_string, BUFFER_SZ);
     if (user_str_len < 0){
         printf("Error setting up buffer, error = %d", user_str_len);
         exit(2);
@@ -187,7 +189,7 @@ int main(int argc, char *argv[]){
 
     switch (opt){
         case 'c':
-            rc = count_words(buff, BUFFER_SZ, user_str_len, 0);  //you need to implement
+            rc = count_words(buff, BUFFER_SZ, user_str_len, 0); // returns word count
             if (rc < 0){
                 printf("Error counting words, rc = %d", rc);
                 exit(2);
@@ -195,14 +197,14 @@ int main(int argc, char *argv[]){
             printf("Word Count: %d\n", rc);
             break;
         case 'r':
-            rc = rev_chars(buff, BUFFER_SZ, user_str_len);  //you need to implement
+            rc = rev_chars(buff, BUFFER_SZ, user_str_len);  // returns a return code
             if (rc < 0){
                 printf("Error reversing characters, rc = %d", rc);
                 exit(2);
             }
             break;
         case 'w':
-            rc = print_words(buff, BUFFER_SZ, user_str_len);  //you need to implement
+            rc = print_words(buff, BUFFER_SZ, user_str_len);  // returns word count
             if (rc < 0){
                 printf("Error counting words, rc = %d", rc);
                 exit(2);
@@ -213,8 +215,6 @@ int main(int argc, char *argv[]){
             printf("Not Implemented!");
             exit(3);
 
-        //TODO:  #5 Implement the other cases for 'r' and 'w' by extending
-        //       the case statement options
         default:
             usage(argv[0]);
             exit(1);
