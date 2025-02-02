@@ -59,7 +59,44 @@ int open_db(char *dbFile, bool should_truncate){
  *  console:  Does not produce any console I/O used by other functions
  */
 int get_student(int fd, int id, student_t *s){
-    return NOT_IMPLEMENTED_YET;
+    int errorCheck = 0;
+    int id = 0;
+    int gpa = 0;
+    char fname[24];
+    char lname[32];
+
+    int idLocInDatabase = id * sizeof(student_t);
+    lseek(fd, SEEK_SET, idLocInDatabase);
+    errorCheck = read(fd, &id, sizeof(int));
+    if (errorCheck == 0) {
+        return SRCH_NOT_FOUND;
+    }
+    else if (errorCheck != sizeof(int)) {
+        return ERR_DB_FILE;
+    }
+    errorCheck = read(fd, &fname, 24);
+    if (errorCheck != 24) {
+        return ERR_DB_FILE;
+    }
+    errorCheck = read(fd, &lname, 32);
+    if (errorCheck != 32) {
+        return ERR_DB_FILE;
+    }
+    errorCheck = read(fd, &gpa, sizeof(int));
+    if (errorCheck != sizeof(int)) {
+        return ERR_DB_FILE;
+    }
+    
+    if (id == DELETED_STUDENT_ID) {
+        return SRCH_NOT_FOUND;
+    }
+
+    s->id = id;
+    strcpy(s->fname, fname);
+    strcpy(s->lname, lname);
+    s->gpa = gpa;
+
+    return NO_ERROR;
 }
 
 /*
@@ -88,6 +125,40 @@ int get_student(int fd, int id, student_t *s){
  *            
  */
 int add_student(int fd, int id, char *fname, char *lname, int gpa){
+    int errorCreatingID = 0;
+    errorCreatingID = validate_range(id, gpa);
+    if (errorCreatingID != 0) {
+        printf(M_ERR_DB_WRITE);
+        return(ERR_DB_OP);
+    }
+    int studentLoc = id * sizeof(student_t);
+
+    char* buff;
+    buff = malloc(sizeof(student_t));
+    lseek(fd, SEEK_SET, studentLoc);
+    
+    errorCreatingID = read(fd, *buff, sizeof(student_t));
+    if (errorCreatingID == -1) {
+        free(buff);
+        printf(M_ERR_DB_READ);
+        return ERR_DB_FILE;
+    }
+    char* zeros;
+    zeros = malloc(sizeof(student_t));
+    for (int i = 0; i < sizeof(student_t); i++) {
+        *(zeros + i) = 0;
+    }
+    errorCreatingID = (buff, zeros, sizeof(student_t));
+    if (errorCreatingID != 0) {
+        free(buff);
+        printf(M_ERR_DB_ADD_DUP);
+        return(ERR_DB_OP);
+    }
+
+    lseek(fd, SEEK_SET, studentLoc);
+    // NEED TO WRITE STUDENT
+    
+    free(buff);
     printf(M_NOT_IMPL);
     return NOT_IMPLEMENTED_YET;
 }
@@ -198,7 +269,7 @@ int print_db(int fd){
  *  student data:
  * 
  *     printf(STUDENT_PRINT_HDR_STRING, "ID", 
- *                  "FIRST NAME", "LAST_NAME", "GPA");
+ *                  "FIRST_NAME", "LAST_NAME", "GPA");
  * 
  *     printf(STUDENT_PRINT_FMT_STRING, s->id, s->fname, 
  *                    student.lname, calculated_gpa_from_s);
@@ -215,7 +286,12 @@ int print_db(int fd){
  *            
  */
 void print_student(student_t *s){
-    printf(M_NOT_IMPL);
+    if (s == NULL || s->id == DELETED_STUDENT_ID) {
+        print(M_ERR_STD_PRINT);
+    }
+    float calc_gpa_from_s = s->gpa / 100.0;
+    printf(STUDENT_PRINT_HDR_STRING, "ID", "FIRST_NAME", "LAST_NAME", "GPA");
+    printf(STUDENT_PRINT_FMT_STRING, s->id, s->fname, s->lname, calc_gpa_from_s);
 }
 
 /*
