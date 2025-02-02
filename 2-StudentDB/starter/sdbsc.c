@@ -60,14 +60,28 @@ int open_db(char *dbFile, bool should_truncate){
  */
 int get_student(int fd, int id, student_t *s){
     int errorCheck = 0;
-    int id = 0;
+    int idLocInDatabase = id * sizeof(student_t);
+    lseek(fd, SEEK_SET, idLocInDatabase);
+    errorCheck = read(fd, s, sizeof(student_t));
+    if (errorCheck == -1) {
+        return ERR_DB_FILE;
+    }
+    else if (errorCheck == 0 || s->id == DELETED_STUDENT_ID) {
+        return SRCH_NOT_FOUND;
+    }
+    else if (errorCheck != sizeof(student_t)) {
+        return ERR_DB_FILE;
+    }   
+
+
+    /*int found_id = 0;
     int gpa = 0;
     char fname[24];
     char lname[32];
 
     int idLocInDatabase = id * sizeof(student_t);
     lseek(fd, SEEK_SET, idLocInDatabase);
-    errorCheck = read(fd, &id, sizeof(int));
+    errorCheck = read(fd, &found_id, sizeof(int));
     if (errorCheck == 0) {
         return SRCH_NOT_FOUND;
     }
@@ -87,16 +101,18 @@ int get_student(int fd, int id, student_t *s){
         return ERR_DB_FILE;
     }
     
-    if (id == DELETED_STUDENT_ID) {
+    if (found_id == DELETED_STUDENT_ID) {
         return SRCH_NOT_FOUND;
     }
 
-    s->id = id;
+    s->id = found_id;
     strcpy(s->fname, fname);
     strcpy(s->lname, lname);
     s->gpa = gpa;
 
+    */
     return NO_ERROR;
+    
 }
 
 /*
@@ -133,34 +149,33 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa){
     }
     int studentLoc = id * sizeof(student_t);
 
-    char* buff;
-    buff = malloc(sizeof(student_t));
+    student_t s;
     lseek(fd, SEEK_SET, studentLoc);
     
-    errorCreatingID = read(fd, *buff, sizeof(student_t));
+    errorCreatingID = read(fd, &s, sizeof(student_t));
     if (errorCreatingID == -1) {
-        free(buff);
         printf(M_ERR_DB_READ);
         return ERR_DB_FILE;
     }
-    char* zeros;
-    zeros = malloc(sizeof(student_t));
-    for (int i = 0; i < sizeof(student_t); i++) {
-        *(zeros + i) = 0;
-    }
-    errorCreatingID = (buff, zeros, sizeof(student_t));
+    errorCreatingID = memcmp(&s, &STUDENT_RECORD_SIZE, sizeof(student_t));
     if (errorCreatingID != 0) {
-        free(buff);
         printf(M_ERR_DB_ADD_DUP);
         return(ERR_DB_OP);
     }
 
     lseek(fd, SEEK_SET, studentLoc);
-    // NEED TO WRITE STUDENT
+    s.id = id;
+    strcpy(s.fname, fname);
+    strcpy(s.lname, lname);
+    s.gpa = gpa;
+    errorCreatingID = write(fd, &s, sizeof(student_t));
+    if (errorCreatingID != sizeof(student_t)) {
+        printf(M_ERR_DB_WRITE);
+        return(ERR_DB_FILE);
+    }
     
-    free(buff);
-    printf(M_NOT_IMPL);
-    return NOT_IMPLEMENTED_YET;
+    printf(M_STD_ADDED);
+    return NO_ERROR;
 }
 
 /*
@@ -186,8 +201,27 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa){
  *            
  */
 int del_student(int fd, int id){
-    printf(M_NOT_IMPL);
-    return NOT_IMPLEMENTED_YET;
+    student_t studentToDelete;
+    int errorCheck = 0;
+    errorCheck = get_student(fd, id, &studentToDelete);
+    if (errorCheck == ERR_DB_FILE) {
+        print(M_ERR_DB_READ);
+        return ERR_DB_FILE;
+    }
+    else if (errorCheck == SRCH_NOT_FOUND) {
+        print(M_STD_NOT_FND_MSG);
+        return ERR_DB_OP;
+    }
+
+    lseek(fd, SEEK_SET, id * sizeof(student_t));
+    errorCheck = write(fd, id, sizeof(student_t));
+    if (errorCheck != sizeof(student_t)) {
+        printf(M_ERR_DB_WRITE);
+        return ERR_DB_FILE;
+    }
+
+    printf(M_STD_DEL_MSG);
+    return NO_ERROR;
 }
 
 /*
