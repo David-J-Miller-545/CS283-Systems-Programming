@@ -73,44 +73,6 @@ int get_student(int fd, int id, student_t *s){
         return ERR_DB_FILE;
     }   
 
-
-    /*int found_id = 0;
-    int gpa = 0;
-    char fname[24];
-    char lname[32];
-
-    int idLocInDatabase = id * STUDENT_RECORD_SIZE;
-    lseek(fd, SEEK_SET, idLocInDatabase);
-    errorCheck = read(fd, &found_id, sizeof(int));
-    if (errorCheck == 0) {
-        return SRCH_NOT_FOUND;
-    }
-    else if (errorCheck != sizeof(int)) {
-        return ERR_DB_FILE;
-    }
-    errorCheck = read(fd, &fname, 24);
-    if (errorCheck != 24) {
-        return ERR_DB_FILE;
-    }
-    errorCheck = read(fd, &lname, 32);
-    if (errorCheck != 32) {
-        return ERR_DB_FILE;
-    }
-    errorCheck = read(fd, &gpa, sizeof(int));
-    if (errorCheck != sizeof(int)) {
-        return ERR_DB_FILE;
-    }
-    
-    if (found_id == DELETED_STUDENT_ID) {
-        return SRCH_NOT_FOUND;
-    }
-
-    s->id = found_id;
-    strcpy(s->fname, fname);
-    strcpy(s->lname, lname);
-    s->gpa = gpa;
-
-    */
     return NO_ERROR;
     
 }
