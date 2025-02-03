@@ -102,11 +102,11 @@ Please answer the following questions and submit in your repo for the second ass
 
     - Please explain why the file size reported by the `ls` command was 128 bytes after adding student with ID=1, 256 after adding student with ID=3, and 4160 after adding the student with ID=64? 
 
-        > **ANSWER:** _start here_
+        > **ANSWER:** _This is because each student is 64 bytes, so when adding the student at id=1 it is important to remember the that first 64 bytes are empty however, to get from the beginning to end it would take 64 * (1 + 1) = 64 * 2 = 128. This behavior is also similar to whenever we insert the student at id=3: 64 * (3 + 1) = 64 * 4 = 256. More or less the file size reported by ls will be the number of bytes (empty or not) between the beginning and the end of the file._
 
     -   Why did the total storage used on the disk remain unchanged when we added the student with ID=1, ID=3, and ID=63, but increased from 4K to 8K when we added the student with ID=64? 
 
-        > **ANSWER:** _start here_
+        > **ANSWER:** _The reason why the total storage used on the disk remained unchanged when we added students with ids of 1, 3, and 63 is because they were all contained within the same block of data. A block of data here is seem to be 4K or more specifically 4096, which also happens to be 64^2 and so conveniently the size of one of our students is 64 bytes. This meaning that a single block of memory can store exactly 64 students. Hence, once we added a student with id=64 which would be our 65th section of 64 bytes of data, a new block of 4K memory had to be allocated on the disk to contain this data. It is also important to note that the blocks are only allocated for bytes within a file that are not empty (comes into play in the following question)._
 
     - Now lets add one more student with a large student ID number  and see what happens:
 
@@ -119,4 +119,4 @@ Please answer the following questions and submit in your repo for the second ass
         ```
         We see from above adding a student with a very large student ID (ID=99999) increased the file size to 6400000 as shown by `ls` but the raw storage only increased to 12K as reported by `du`.  Can provide some insight into why this happened?
 
-        > **ANSWER:**  _start here_
+        > **ANSWER:**  _As we see above adding a student with a very large student id of 99999 will greatly increase the number of bytes from the start of the file to the end of the file. Specifically the number of bytes would be 64 * (99999 + 1) = 64 * 100000 = 6400000. However, if we assume before we added this new student that we only had students with ids of 1, 3, 63, and 64; we would only have the first two 4K blocks of memory allocated for this file. When we add the new student with id=99999, the physical disk does not care that it is at the end of the file, it only cares that it is not within either of the existing blocks of data so what it does is it allocates one more 4K block of data for this distant student. In summary; ls looks at the logical file size which is how many bytes (empty or not) are between the beginning of the file and the end of the file while du looks at the physical disk usage which allocates blocks of memory for sections of a file that have non-empty data within it._
