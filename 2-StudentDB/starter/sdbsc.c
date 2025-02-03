@@ -166,7 +166,7 @@ int add_student(int fd, int id, char *fname, char *lname, int gpa){
     strcpy(s.fname, fname);
     strcpy(s.lname, lname);
     s.gpa = gpa;
-     errorCreatingID = write(fd, &s, STUDENT_RECORD_SIZE);
+    errorCreatingID = write(fd, &s, STUDENT_RECORD_SIZE);
     if (errorCreatingID != STUDENT_RECORD_SIZE) {
         printf(M_ERR_DB_WRITE);
         return(ERR_DB_FILE);
@@ -417,8 +417,46 @@ void print_student(student_t *s){
  *            
  */
 int compress_db(int fd){
-    printf(M_NOT_IMPL);
-    return fd;
+    int new_fd = open_db(TMP_DB_FILE, false);
+    if (new_fd == -1) {
+        printf(M_ERR_DB_CREATE);
+        return ERR_DB_FILE;
+    }
+    
+    student_t currentStudent;
+    lseek(fd, 0, SEEK_SET);
+    int emptyCheck = 0;
+    int readErrorCheck = read(fd, &currentStudent, STUDENT_RECORD_SIZE);
+    int writeErrorCheck = 0;
+    while (readErrorCheck != 0) {
+        if (readErrorCheck == -1 || readErrorCheck != STUDENT_RECORD_SIZE) {
+            printf(M_ERR_DB_READ);
+            return ERR_DB_FILE;
+        }
+        emptyCheck = memcmp(&currentStudent, &EMPTY_STUDENT_RECORD, STUDENT_RECORD_SIZE);
+        if (emptyCheck != 0) {
+            lseek(new_fd, currentStudent.id * STUDENT_RECORD_SIZE, SEEK_SET);
+            writeErrorCheck = write(new_fd, &currentStudent, STUDENT_RECORD_SIZE);
+            if (writeErrorCheck != STUDENT_RECORD_SIZE) {
+                printf(M_ERR_DB_WRITE);
+                close(new_fd);
+                return ERR_DB_FILE;
+            }
+        }
+        readErrorCheck = read(fd, &currentStudent, STUDENT_RECORD_SIZE);
+    }
+    close(fd);
+    close(new_fd);
+    rename(TMP_DB_FILE, DB_FILE);
+
+    new_fd = open(DB_FILE, false);
+    if (new_fd == -1) {
+        printf(M_ERR_DB_OPEN);
+        return ERR_DB_FILE;
+    }
+
+    printf(M_DB_COMPRESSED_OK);
+    return new_fd;
 }
 
 
