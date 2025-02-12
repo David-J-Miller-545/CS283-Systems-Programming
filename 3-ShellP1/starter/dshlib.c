@@ -6,6 +6,29 @@
 #include "dshlib.h"
 
 /*
+ *  remove_leading_and_trailing_chars
+ *    str:              the string to modify
+ *    char_to_remove:   the char the user wants to remove leading and trailing from str  
+ * 
+ * This function removes all leading and trailing char_to_remove from str.
+ * 
+ * returns: char* to the modified str
+ */
+char* remove_leading_and_trailing_chars(char* str, char char_to_remove)
+{
+    int end = strlen(str) - 1;
+    while (str[end] == char_to_remove) {
+        end --;
+    }
+    str[end + 1] = '\0';
+    while (str[0] == char_to_remove && str[0] != '\0') {
+        str ++;
+    }
+    return str;
+}
+
+
+/*
  *  build_cmd_list
  *    cmd_line:     the command line from the user
  *    clist *:      pointer to clist structure to be populated
@@ -34,14 +57,7 @@
  */
 int build_cmd_list(char *cmd_line, command_list_t *clist)
 {
-    int end = strlen(cmd_line) - 1;
-    while (cmd_line[end] == SPACE_CHAR) {
-        end --;
-    }
-    cmd_line[end] == '\0';
-    while (cmd_line[0] == SPACE_CHAR && cmd_line != '\0') {
-        cmd_line ++;
-    }
+    cmd_line = remove_leading_and_trailing_chars(cmd_line, SPACE_CHAR);
     
     char* currentCommand = strtok(cmd_line, &PIPE_STRING);\
     char* currentArgs;
@@ -51,16 +67,7 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)
         if (cmdCount > CMD_MAX) {
             return ERR_TOO_MANY_COMMANDS;
         }
-
-        end = strlen(currentCommand) - 1;
-        while (currentCommand[end] == SPACE_CHAR) {
-            end --;
-        }
-        currentCommand[end] == '\0';
-        while (currentCommand[0] == SPACE_CHAR && currentCommand != '\0') {
-            currentCommand ++;
-        }
-
+        currentCommand = remove_leading_and_trailing_chars(currentCommand, SPACE_CHAR);
         if (strlen(currentCommand) > SH_CMD_MAX) {
             return ERR_CMD_OR_ARGS_TOO_BIG;
         }
@@ -68,14 +75,7 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)
         if (currentArgs != NULL) {
             *currentArgs = '\0';
             currentArgs ++;
-            end = strlen(currentArgs) - 1;
-            while (currentArgs[end] == SPACE_CHAR) {
-                end --;
-            }
-            currentArgs[end + 1] = '\0';
-            while (currentArgs[0] == SPACE_CHAR && currentArgs != '\0') {
-                currentArgs ++;
-            }
+            currentArgs = remove_leading_and_trailing_chars(currentArgs, SPACE_CHAR);
         }
         if (strlen(currentCommand) > EXE_MAX) {
             return ERR_CMD_OR_ARGS_TOO_BIG;
@@ -94,3 +94,5 @@ int build_cmd_list(char *cmd_line, command_list_t *clist)
     clist->num = cmdCount;
     return OK;
 }
+
+

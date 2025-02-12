@@ -64,6 +64,10 @@ int main()
                 exit(0);
             }
 
+            if (strcmp(cmd_buff, DRAGON_CMD) == 0) {
+                puts(CMD_DRAGON_ART_PRINT);
+            }
+
             rc = build_cmd_list(cmd_buff, &clist);
             if (rc == OK) {
                 printf(CMD_OK_HEADER, clist.num);
@@ -86,4 +90,5 @@ int main()
         }
         
     }
+
 }

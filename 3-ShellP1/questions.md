@@ -15,7 +15,7 @@
 
 - One topic you should have found information on is "redirection". Please provide at least 3 redirection examples that we should implement in our custom shell, and explain what challenges we might have implementing them.
 
-    > **Answer**:  _start here_
+    > **Answer**:  _`echo > file.txt`, `cmd | cmd2 < file.txt`, `echo >> file.txt`. Some challenges we may run into when implementing these is handling when things can get fed as well as what direction we are feeding them from._
 
 - You should have also learned about "pipes". Redirection and piping both involve controlling input and output in the shell, but they serve different purposes. Explain the key differences between redirection and piping.
 
@@ -23,8 +23,8 @@
 
 - STDERR is often used for error messages, while STDOUT is for regular output. Why is it important to keep these separate in a shell?
 
-    > **Answer**:  _start here_
+    > **Answer**:  _STDOUT goes to the main display while STDERR is only within the system. The reason it it important they are seperate in the shell is so that we don't use computing power writing STDERR to screen everytime we have an error or warning._
 
 - How should our custom shell handle errors from commands that fail? Consider cases where a command outputs both STDOUT and STDERR. Should we provide a way to merge them, and if so, how?
 
-    > **Answer**:  _start here_
+    > **Answer**:  _We should not try to merge all outputs into STDOUT and I do not see any benefit in merging outputs into STDERR, we could try to store all outputs locally, label them, and distribute them later when we choose to._
