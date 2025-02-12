@@ -34,6 +34,63 @@
  */
 int build_cmd_list(char *cmd_line, command_list_t *clist)
 {
-    printf(M_NOT_IMPL);
-    return EXIT_NOT_IMPL;
+    int end = strlen(cmd_line) - 1;
+    while (cmd_line[end] == SPACE_CHAR) {
+        end --;
+    }
+    cmd_line[end] == '\0';
+    while (cmd_line[0] == SPACE_CHAR && cmd_line != '\0') {
+        cmd_line ++;
+    }
+    
+    char* currentCommand = strtok(cmd_line, &PIPE_STRING);\
+    char* currentArgs;
+    int cmdCount = 0;
+    while (currentCommand != NULL) {
+        cmdCount ++;
+        if (cmdCount > CMD_MAX) {
+            return ERR_TOO_MANY_COMMANDS;
+        }
+
+        end = strlen(currentCommand) - 1;
+        while (currentCommand[end] == SPACE_CHAR) {
+            end --;
+        }
+        currentCommand[end] == '\0';
+        while (currentCommand[0] == SPACE_CHAR && currentCommand != '\0') {
+            currentCommand ++;
+        }
+
+        if (strlen(currentCommand) > SH_CMD_MAX) {
+            return ERR_CMD_OR_ARGS_TOO_BIG;
+        }
+        currentArgs = strchr(currentCommand, SPACE_CHAR);
+        if (currentArgs != NULL) {
+            *currentArgs = '\0';
+            currentArgs ++;
+            end = strlen(currentArgs) - 1;
+            while (currentArgs[end] == SPACE_CHAR) {
+                end --;
+            }
+            currentArgs[end + 1] = '\0';
+            while (currentArgs[0] == SPACE_CHAR && currentArgs != '\0') {
+                currentArgs ++;
+            }
+        }
+        if (strlen(currentCommand) > EXE_MAX) {
+            return ERR_CMD_OR_ARGS_TOO_BIG;
+        }
+        else if (currentArgs != NULL && strlen(currentArgs) > ARG_MAX) {
+            return ERR_CMD_OR_ARGS_TOO_BIG;
+        }
+        command_t newCommand;
+        strcpy(newCommand.exe, currentCommand);
+        if (currentArgs != NULL) strcpy(newCommand.args, currentArgs);
+        else strcpy(newCommand.args, "");
+        clist->commands[cmdCount - 1] = newCommand;
+        currentCommand = strtok(NULL, &PIPE_STRING);
+    }
+    if (cmdCount == 0) return WARN_NO_CMDS;
+    clist->num = cmdCount;
+    return OK;
 }
