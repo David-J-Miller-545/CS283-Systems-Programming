@@ -123,6 +123,24 @@ int clear_cmd_buff(cmd_buff_t *cmd_buff) {
     return OK;
 }
 
+char* extract_tok_from_quotes(char **saveptr) {
+    char* tok;
+    char quote = (*saveptr)[0];
+
+    quote = (*saveptr)[0];
+    (*saveptr)[0] = '\0';
+    (*saveptr) ++;
+    tok = (*saveptr);
+    (*saveptr) = strchr((*saveptr), quote);
+    if ((*saveptr) == NULL) return NULL; //Find the correct Error
+    (*saveptr)[0] = '\0';
+    (*saveptr) ++;
+    while ((*saveptr)[0] == SPACE_CHAR && (*saveptr)[0] != '\0') {
+        (*saveptr) ++;
+    }
+    return tok;
+}
+
 int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
     int end = strlen(cmd_line) - 1;
     while (cmd_line[end] == SPACE_CHAR) {
@@ -148,24 +166,12 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
     bool hasTokened = false;
 
     char delim[] = {SPACE_CHAR, '\0'};
-    char* saveptr;
+    char* saveptr = cmd_line;
     char* currentArg;
 
-    char quote;
-
-    if (cmd_line[0] == '"' || cmd_line[0] == '\'') { // If a quote find the rest of the quote
-        quote = cmd_line[0];
-        cmd_line[0] = '\0';
-        cmd_line ++;
-        currentArg = cmd_line;
-        cmd_line = strchr(cmd_line, quote);
-        if (cmd_line == NULL) return -1; //Find the correct Error
-        cmd_line[0] = '\0';
-        cmd_line ++;
-        while (cmd_line[0] == SPACE_CHAR && cmd_line[0] != '\0') {
-            cmd_line ++;
-        }
-        saveptr = cmd_line;    
+    if (saveptr[0] == '"' || saveptr[0] == '\'') { // If a quote find the rest of the quote
+       currentArg = extract_tok_from_quotes(&saveptr);
+       if (currentArg == NULL) return -1; //Find the correct Error
     }
     else {
         currentArg = strtok_r(cmd_line, delim, &saveptr);
@@ -185,17 +191,8 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
         }
         strcpy(cmd_buff->argv[argCount - 1], currentArg);
         if (saveptr != NULL && (saveptr[0] == '"' || saveptr[0] == '\'')) { // If a quote find the rest of the quote
-            quote = saveptr[0];
-            saveptr[0] = '\0';
-            saveptr ++;
-            currentArg = saveptr;
-            saveptr = strchr(saveptr, quote);
-            if (saveptr == NULL) return -1; //Find the correct Error
-            saveptr[0] = '\0';
-            saveptr ++;
-            while (saveptr[0] == SPACE_CHAR && saveptr[0] != '\0') {
-                saveptr ++;
-            }
+            currentArg = extract_tok_from_quotes(&saveptr);
+            if (currentArg == NULL) return -1; //Find the correct Error
         }
         else {
             if (hasTokened) currentArg = strtok_r(NULL, delim, &saveptr);
@@ -227,6 +224,7 @@ int exec_cmd(cmd_buff_t *cmd) {
             waitpid(PID, &rc, 0);
         }
     }
+    return OK;
 }
 
 Built_In_Cmds match_command(const char *input) {
