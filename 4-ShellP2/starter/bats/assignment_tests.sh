@@ -13,31 +13,28 @@
 @test "Change directory" {
     current=$(pwd)
 
-    cd /tmp
-    mkdir -p dsh-test
-
     run "${current}/dsh" <<EOF                
-cd dsh-test
+cd bats
 pwd
 EOF
 
-    # Strip all whitespace (spaces, tabs, newlines) from the output
+#     # Strip all whitespace (spaces, tabs, newlines) from the output
     stripped_output=$(echo "$output" | tr -d '[:space:]')
 
-    # Expected output with all whitespace removed for easier matching
-    expected_output="/tmp/dsh-testdsh2>dsh2>dsh2>cmdloopreturned0"
+#     # Expected output with all whitespace removed for easier matching
+    expected_output="${current}/batsdsh2>dsh2>dsh2>cmdloopreturned0"
 
-    # These echo commands will help with debugging and will only print
-    #if the test fails
+#     # These echo commands will help with debugging and will only print
+#     #if the test fails
     echo "Captured stdout:" 
     echo "Output: $output"
     echo "Exit Status: $status"
     echo "${stripped_output} -> ${expected_output}"
 
-    # Check exact match
+#     # Check exact match
     [ "$stripped_output" = "$expected_output" ]
 
-    # Assertions
+#     # Assertions
     [ "$status" -eq 0 ]
 }
 
@@ -52,23 +49,23 @@ cd
 pwd
 EOF
 
-    # Strip all whitespace (spaces, tabs, newlines) from the output
+#     # Strip all whitespace (spaces, tabs, newlines) from the output
     stripped_output=$(echo "$output" | tr -d '[:space:]')
 
-    # Expected output with all whitespace removed for easier matching
+#     # Expected output with all whitespace removed for easier matching
     expected_output="/tmpdsh2>dsh2>dsh2>cmdloopreturned0"
 
-    # These echo commands will help with debugging and will only print
-    #if the test fails
+#     # These echo commands will help with debugging and will only print
+#     #if the test fails
     echo "Captured stdout:" 
     echo "Output: $output"
     echo "Exit Status: $status"
     echo "${stripped_output} -> ${expected_output}"
 
-    # Check exact match
+#     # Check exact match
     [ "$stripped_output" = "$expected_output" ]
 
-    # Assertions
+#     # Assertions
     [ "$status" -eq 0 ]
 }
 

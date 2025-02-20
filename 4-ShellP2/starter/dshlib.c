@@ -70,11 +70,17 @@ int exec_local_cmd_loop()
         else {
             //remove the trailing \n from cmd_buff
             cmd_buff[strcspn(cmd_buff,"\n")] = '\0';
+
+            rc = build_cmd_buff(cmd_buff, &cmd);
+
+            if (rc == 0) {
+                rc = exec_cmd(&cmd);
+            }
+
+            clear_cmd_buff(&cmd);
+            free_cmd_buff(&cmd);
         
     
-
-    // TODO IMPLEMENT parsing input to cmd_buff_t *cmd_buff
-
         }
     }
     // TODO IMPLEMENT if built-in command, execute builtin logic for exit, cd (extra credit: dragon)
@@ -109,7 +115,7 @@ int free_cmd_buff(cmd_buff_t *cmd_buff) {
 }
 
 int clear_cmd_buff(cmd_buff_t *cmd_buff) {
-    cmd_buff->argc = NULL;
+    cmd_buff->argc = 0;
     for (int i = 0; i < CMD_ARGV_MAX; i++) {
         cmd_buff->argv[i] = NULL;
     }
@@ -199,7 +205,57 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
             }
         }
     }
+    cmd_buff->argv[argCount] = NULL;
+    cmd_buff->argc = argCount;
     if (argCount == 0) return WARN_NO_CMDS;
     return OK;
 
 }
+
+int exec_cmd(cmd_buff_t *cmd) {
+
+    int rc = match_command(cmd->argv[0]);
+    if (rc != BI_NOT_BI) {
+        rc = exec_built_in_cmd(cmd);
+    }
+    else {
+        int PID = fork();
+        if (PID == 0) {
+            execvp(cmd->argv[0], cmd->argv);
+        }
+        else {
+            waitpid(PID, &rc, 0);
+        }
+    }
+}
+
+Built_In_Cmds match_command(const char *input) {
+    if (strcmp(input, EXIT_CMD) == 0) {
+        return BI_CMD_EXIT;
+    }
+    else if (strcmp(input, "dragon") == 0) {
+        return BI_CMD_DRAGON;
+    }
+    else if (strcmp(input, "cd") == 0) {
+        return BI_CMD_CD;
+    }
+    else return BI_NOT_BI; 
+}
+
+Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd) {
+    int rc = match_command(cmd->argv[0]);
+    if (rc == BI_CMD_EXIT) {
+        exit(0);
+    }
+    else if (rc == BI_CMD_DRAGON) {
+        return OK;
+    }
+    else if (rc == BI_CMD_CD) {
+        if (cmd->argc == 2) {
+            rc = chdir(cmd->argv[1]);
+            if (rc == -1) return ERR_CMD_ARGS_BAD;
+            else return OK;
+        }
+    }
+}
+
