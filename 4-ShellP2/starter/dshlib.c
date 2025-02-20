@@ -138,9 +138,33 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
     } 
 
     strcpy(cmd_buff->_cmd_buffer, cmd_line);
+    
+    bool hasTokened = false;
 
-    char* delim = {SPACE_CHAR};
-    char* currentArg = strtok(cmd_line, &delim);
+    char delim[] = {SPACE_CHAR, '\0'};
+    char* saveptr;
+    char* currentArg;
+
+    char quote;
+
+    if (cmd_line[0] == '"' || cmd_line[0] == '\'') { // If a quote find the rest of the quote
+        quote = cmd_line[0];
+        cmd_line[0] = '\0';
+        cmd_line ++;
+        currentArg = cmd_line;
+        cmd_line = strchr(cmd_line, quote);
+        if (cmd_line == NULL) return -1; //Find the correct Error
+        cmd_line[0] = '\0';
+        cmd_line ++;
+        while (cmd_line[0] == SPACE_CHAR && cmd_line[0] != '\0') {
+            cmd_line ++;
+        }
+        saveptr = cmd_line;    
+    }
+    else {
+        currentArg = strtok_r(cmd_line, delim, &saveptr);
+        hasTokened = true;
+    }
     int argCount = 0;
     if (currentArg != NULL && strlen(currentArg) > EXE_MAX) {
         return ERR_CMD_OR_ARGS_TOO_BIG;
@@ -154,6 +178,26 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
             return ERR_CMD_OR_ARGS_TOO_BIG;
         }
         strcpy(cmd_buff->argv[argCount - 1], currentArg);
+        if (saveptr != NULL && (saveptr[0] == '"' || saveptr[0] == '\'')) { // If a quote find the rest of the quote
+            quote = saveptr[0];
+            saveptr[0] = '\0';
+            saveptr ++;
+            currentArg = saveptr;
+            saveptr = strchr(saveptr, quote);
+            if (saveptr == NULL) return -1; //Find the correct Error
+            saveptr[0] = '\0';
+            saveptr ++;
+            while (saveptr[0] == SPACE_CHAR && saveptr[0] != '\0') {
+                saveptr ++;
+            }
+        }
+        else {
+            if (hasTokened) currentArg = strtok_r(NULL, delim, &saveptr);
+            else {
+                currentArg = saveptr;
+                currentArg = strtok_r(currentArg, delim, &saveptr);
+            }
+        }
     }
     if (argCount == 0) return WARN_NO_CMDS;
     return OK;
