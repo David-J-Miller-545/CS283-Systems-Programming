@@ -5,8 +5,12 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/wait.h>
 #include "dshlib.h"
+
+static int last_rc = 0;
+
 
 /*
  * Implement your exec_local_cmd_loop function by building a loop that prompts the 
@@ -75,6 +79,7 @@ int exec_local_cmd_loop()
 
             if (rc == 0) {
                 rc = exec_cmd(&cmd);
+                if (rc == OK_EXIT) return OK;
             }
 
             clear_cmd_buff(&cmd);
@@ -222,14 +227,19 @@ int exec_cmd(cmd_buff_t *cmd) {
         }
         else if (PID == 0) {
             execvp(cmd->argv[0], cmd->argv);
+            exit(errno);
         }
         else {
             waitpid(PID, &rc, 0);
-            if (WIFEXITED(rc)) return WEXITSTATUS(rc);
-            else if (WIFSIGNALED(rc)) return WTERMSIG(rc);
+            if (WIFEXITED(rc)) {
+                rc = WEXITSTATUS(rc);
+                if (rc != 0) printf("%s\n", strerror(rc));
+            }
+            else if (WIFSIGNALED(rc)) rc = WTERMSIG(rc);
         }
     }
-    return OK;
+    last_rc = rc;
+    return rc;
 }
 
 Built_In_Cmds match_command(const char *input) {
@@ -242,14 +252,15 @@ Built_In_Cmds match_command(const char *input) {
     else if (strcmp(input, "cd") == 0) {
         return BI_CMD_CD;
     }
+    else if (strcmp(input, "rc") == 0) {
+        return BI_RC;
+    }
     else return BI_NOT_BI; 
 }
 
 Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd) {
     int rc = match_command(cmd->argv[0]);
-    if (rc == BI_CMD_EXIT) {
-        exit(0); // For some reason this doesn't fully exit...
-    }
+    if (rc == BI_CMD_EXIT) return OK_EXIT;
     else if (rc == BI_CMD_DRAGON) {
         return OK;
     }
@@ -259,6 +270,9 @@ Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd) {
             if (rc == -1) return ERR_CMD_ARGS_BAD;
             else return OK;
         }
+    }
+    else if (rc == BI_RC) {
+        printf("%d\n", last_rc);
     }
 }
 

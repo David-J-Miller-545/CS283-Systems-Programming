@@ -22,7 +22,7 @@ EOF
     stripped_output=$(echo "$output" | tr -d '[:space:]')
 
     # Expected output with all whitespace removed for easier matching
-    expected_output="dsh2>"
+    expected_output="dsh2>cmdloopreturned0"
 
     # These echo commands will help with debugging and will only print
     #if the test fails
@@ -122,6 +122,31 @@ EOF
 
     # Expected output with all whitespace removed for easier matching
     expected_output="hello!dsh2>dsh2>cmdloopreturned0"
+
+    # These echo commands will help with debugging and will only print
+    #if the test fails
+    echo "Captured stdout:" 
+    echo "Output: $output"
+    echo "Exit Status: $status"
+    echo "${stripped_output} -> ${expected_output}"
+
+    # Check exact match
+    [ "$stripped_output" = "$expected_output" ]
+}
+
+@test "Print errno and rc" {
+    touch test
+    run "./dsh" <<EOF                
+./test
+rc
+EOF
+    rm -rf test
+
+    # Strip all whitespace (spaces, tabs, newlines) from the output
+    stripped_output=$(echo "$output" | tr -d '[:space:]')
+
+    # Expected output with all whitespace removed for easier matching
+    expected_output="dsh2>dsh2>Permissiondenieddsh2>13dsh2>cmdloopreturned0"
 
     # These echo commands will help with debugging and will only print
     #if the test fails
