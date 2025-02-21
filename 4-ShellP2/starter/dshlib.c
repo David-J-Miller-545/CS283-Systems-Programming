@@ -217,11 +217,16 @@ int exec_cmd(cmd_buff_t *cmd) {
     }
     else {
         int PID = fork();
-        if (PID == 0) {
+        if (PID == -1) {
+            return ERR_MEMORY;
+        }
+        else if (PID == 0) {
             execvp(cmd->argv[0], cmd->argv);
         }
         else {
             waitpid(PID, &rc, 0);
+            if (WIFEXITED(rc)) return WEXITSTATUS(rc);
+            else if (WIFSIGNALED(rc)) return WTERMSIG(rc);
         }
     }
     return OK;
@@ -243,7 +248,7 @@ Built_In_Cmds match_command(const char *input) {
 Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd) {
     int rc = match_command(cmd->argv[0]);
     if (rc == BI_CMD_EXIT) {
-        exit(0);
+        exit(0); // For some reason this doesn't fully exit...
     }
     else if (rc == BI_CMD_DRAGON) {
         return OK;
