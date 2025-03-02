@@ -73,6 +73,7 @@ typedef enum {
     BI_CMD_CD,
     BI_NOT_BI,
     BI_EXECUTED,
+    BI_RC,
 } Built_In_Cmds;
 Built_In_Cmds match_command(const char *input); 
 Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd);
