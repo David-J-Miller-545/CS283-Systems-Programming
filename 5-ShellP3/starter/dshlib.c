@@ -63,7 +63,7 @@ int exec_local_cmd_loop()
         return ERR_MEMORY;
     }
     int rc = 0;
-    cmd_buff_t cmd;
+    command_list_t cmd;
 
     while(1){
         printf("%s", SH_PROMPT);
@@ -74,15 +74,14 @@ int exec_local_cmd_loop()
         else {
             cmd_buff[strcspn(cmd_buff,"\n")] = '\0';
 
-            rc = build_cmd_buff(cmd_buff, &cmd);
+            rc = build_cmd_list(cmd_buff, &cmd);
 
-            if (rc == 0) {
-                rc = exec_cmd(&cmd);
+            if (rc == OK) {
+                rc = execute_pipeline(&cmd);
                 if (rc == OK_EXIT) return OK;
             }
 
-            clear_cmd_buff(&cmd);
-            free_cmd_buff(&cmd);
+            free_cmd_list(&cmd);
         
     
         }
@@ -140,6 +139,35 @@ char* extract_tok_from_quotes(char **saveptr) {
     return tok;
 }
 
+int build_cmd_list(char *cmd_line, command_list_t *clist) {
+    int rc = OK;
+    int cmdNum = 0;
+    char* saveptr = cmd_line;
+    char* currentCommand;
+
+    currentCommand = strtok_r(cmd_line, "|", &saveptr);
+    while (currentCommand != NULL) {
+        cmdNum ++;
+        if (cmdNum > CMD_MAX) return ERR_TOO_MANY_COMMANDS;
+        rc = build_cmd_buff(currentCommand, &(clist->commands[cmdNum - 1]));
+        if (rc != OK && rc != WARN_NO_CMDS) return rc;
+        currentCommand = strtok_r(NULL, "|", &saveptr);
+    }
+
+    clist->num = cmdNum;
+    return OK;
+}
+
+int free_cmd_list(command_list_t *cmd_lst) {
+    int rc = OK;
+    for (int i = 0; i < cmd_lst->num; i++) {
+        rc = clear_cmd_buff(&(cmd_lst->commands[i]));
+        if (rc != OK) return rc;
+        rc = free_cmd_buff(&(cmd_lst->commands[i]));
+    }
+    return rc;
+}
+
 int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
     int end = strlen(cmd_line) - 1;
     while (cmd_line[end] == SPACE_CHAR) {
@@ -165,7 +193,7 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
     bool hasTokened = false;
 
     char delim[] = {SPACE_CHAR, '\0'};
-    char* saveptr = cmd_line;
+    char* saveptr = cmd_buff->_cmd_buffer;
     char* currentArg;
 
     if (saveptr[0] == '"' || saveptr[0] == '\'') { // If a quote find the rest of the quote
@@ -173,7 +201,7 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
        if (currentArg == NULL) return -1; //Find the correct Error
     }
     else {
-        currentArg = strtok_r(cmd_line, delim, &saveptr);
+        currentArg = strtok_r(cmd_buff->_cmd_buffer, delim, &saveptr);
         hasTokened = true;
     }
     int argCount = 0;
@@ -209,7 +237,6 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff) {
 }
 
 int exec_cmd(cmd_buff_t *cmd) {
-
     int rc = match_command(cmd->argv[0]);
     if (rc != BI_NOT_BI) {
         rc = exec_built_in_cmd(cmd);
@@ -268,5 +295,62 @@ Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd) {
     else if (rc == BI_RC) {
         printf("%d\n", last_rc);
     }
+}
+
+int execute_pipeline(command_list_t *clist) {
+    int pipes[clist->num - 1][2];  // Array of pipes
+    pid_t pids[clist->num];        // Array to store process IDs
+
+    // Create all necessary pipes
+    for (int i = 0; i < clist->num - 1; i++) {
+        if (pipe(pipes[i]) == -1) {
+            perror("pipe");
+            return ERR_EXEC_CMD;
+        }
+    }
+
+    // Create processes for each command
+    for (int i = 0; i < clist->num; i++) {
+        pids[i] = fork();
+        if (pids[i] == -1) {
+            perror("fork");
+            return ERR_EXEC_CMD;
+        }
+
+        if (pids[i] == 0) {  // Child process
+            // Set up input pipe for all except first process
+            if (i > 0) {
+                dup2(pipes[i-1][0], STDIN_FILENO);
+            }
+
+            // Set up output pipe for all except last process
+            if (i < clist->num - 1) {
+                dup2(pipes[i][1], STDOUT_FILENO);
+            }
+
+            // Close all pipe ends in child
+            for (int j = 0; j < clist->num - 1; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+
+            // Execute command
+            printf("Exec Pipeline command #%d: \"%s\"\n", i, clist->commands[i].argv[0]);
+            return exec_cmd(&(clist->commands[i]));
+        }
+    }
+
+    // Parent process: close all pipe ends
+    for (int i = 0; i < clist->num - 1; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    // Wait for all children
+    for (int i = 0; i < clist->num; i++) {
+        waitpid(pids[i], NULL, 0);
+    }
+
+    return OK; // TEMP
 }
 
