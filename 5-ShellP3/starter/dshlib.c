@@ -63,7 +63,7 @@ int exec_local_cmd_loop()
         return ERR_MEMORY;
     }
     int rc = 0;
-    command_list_t cmd;
+    command_list_t clist;
 
     while(1){
         printf("%s", SH_PROMPT);
@@ -74,14 +74,15 @@ int exec_local_cmd_loop()
         else {
             cmd_buff[strcspn(cmd_buff,"\n")] = '\0';
 
-            rc = build_cmd_list(cmd_buff, &cmd);
+            rc = build_cmd_list(cmd_buff, &clist);
 
             if (rc == OK) {
-                rc = execute_pipeline(&cmd);
+                if (clist.num > 1) rc = execute_pipeline(&clist);
+                else rc = exec_cmd(&(clist.commands[0]));
                 if (rc == OK_EXIT) return OK;
             }
 
-            free_cmd_list(&cmd);
+            free_cmd_list(&clist);
         
     
         }
@@ -121,6 +122,23 @@ int clear_cmd_buff(cmd_buff_t *cmd_buff) {
     return OK;
 }
 
+char* search_for_quotes(char* str) {
+    while (*str != '\'' && *str != '"') {
+        if (*str == '\0') return NULL;
+        else str++;
+    }
+    return str;
+}
+
+char* find_end_quote(char *address_of_start_quote, char quote_char) {
+    if (*address_of_start_quote == quote_char) address_of_start_quote++;
+    while (*address_of_start_quote != quote_char) {
+        if (*address_of_start_quote == '\0') return NULL;
+        else address_of_start_quote++;
+    }
+    return address_of_start_quote;
+}
+
 char* extract_tok_from_quotes(char **saveptr) {
     char* tok;
     char quote = (*saveptr)[0];
@@ -139,19 +157,74 @@ char* extract_tok_from_quotes(char **saveptr) {
     return tok;
 }
 
+char not_in_quotes(char* left_bound, char* currentLoc) {
+    //printf("Init Left Bound: %u\n", left_bound);
+    //printf("Delim Loc: %u\n", currentLoc);
+    while (left_bound != NULL && left_bound < currentLoc) {
+        //printf("Loop can run\n");
+        left_bound = search_for_quotes(left_bound);
+        //printf("Left Bound #1: %u\n", left_bound);
+        if (left_bound == NULL) return 1;
+        left_bound = find_end_quote(left_bound, *left_bound);
+        //printf("Left Bound #2: %u\n", left_bound);
+        left_bound ++;
+    }
+    //printf("Leave loop\n");
+    if (left_bound == NULL) return 0;
+    else return 1;
+}
+
+char* cmdtok(char** saveptr, char delim) {
+    char* strStart = *saveptr;
+    if (*strStart == '\0') {
+        return NULL;
+    }
+    char* delimLoc = strchr(*saveptr, delim);
+    if (delimLoc != NULL) {
+        while (not_in_quotes(strStart, delimLoc) == 0) {
+            //printf("check");
+            if (*delimLoc != '\0') {
+                //printf("test1");
+                delimLoc++;
+                *saveptr = delimLoc;
+                //printf("test2");
+                delimLoc = strchr(*saveptr, delim);
+                //printf("test");
+            }
+            else return strStart;
+        }
+        *delimLoc = '\0';
+        *saveptr = delimLoc + 1;
+    }
+    else {
+        delimLoc = *saveptr;
+        while(*delimLoc != '\0') {
+            delimLoc++;
+        }
+        *saveptr = delimLoc;
+    }
+    return strStart;
+}
+
 int build_cmd_list(char *cmd_line, command_list_t *clist) {
     int rc = OK;
     int cmdNum = 0;
     char* saveptr = cmd_line;
     char* currentCommand;
 
-    currentCommand = strtok_r(cmd_line, "|", &saveptr);
+    //currentCommand = cmdtok(&saveptr, PIPE_CHAR);
+    currentCommand = strtok_r(cmd_line, PIPE_STRING, &saveptr);
     while (currentCommand != NULL) {
         cmdNum ++;
         if (cmdNum > CMD_MAX) return ERR_TOO_MANY_COMMANDS;
         rc = build_cmd_buff(currentCommand, &(clist->commands[cmdNum - 1]));
+        //printf("Command %d: ", cmdNum);
+        //for (int i = 0; i < clist->commands[cmdNum - 1].argc; i++) 
+        //    printf("%s ", clist->commands[cmdNum - 1].argv[i]);
+        //printf("\n");
         if (rc != OK && rc != WARN_NO_CMDS) return rc;
-        currentCommand = strtok_r(NULL, "|", &saveptr);
+        //currentCommand = cmdtok(&saveptr, PIPE_CHAR);
+        currentCommand = strtok_r(NULL, PIPE_STRING, &saveptr);
     }
 
     clist->num = cmdNum;
@@ -257,6 +330,7 @@ int exec_cmd(cmd_buff_t *cmd) {
                 if (rc != 0) printf("%s\n", strerror(rc));
             }
             else if (WIFSIGNALED(rc)) rc = WTERMSIG(rc);
+            last_rc = rc;
         }
     }
     last_rc = rc;
@@ -281,7 +355,10 @@ Built_In_Cmds match_command(const char *input) {
 
 Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd) {
     int rc = match_command(cmd->argv[0]);
-    if (rc == BI_CMD_EXIT) return OK_EXIT;
+    if (rc == BI_CMD_EXIT) {
+        printf("exiting...\n");
+        return OK_EXIT;
+    }
     else if (rc == BI_CMD_DRAGON) {
         return OK;
     }
@@ -300,6 +377,7 @@ Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd) {
 int execute_pipeline(command_list_t *clist) {
     int pipes[clist->num - 1][2];  // Array of pipes
     pid_t pids[clist->num];        // Array to store process IDs
+    int rc = OK;
 
     // Create all necessary pipes
     for (int i = 0; i < clist->num - 1; i++) {
@@ -335,11 +413,18 @@ int execute_pipeline(command_list_t *clist) {
             }
 
             // Execute command
-            printf("Exec Pipeline command #%d: \"%s\"\n", i, clist->commands[i].argv[0]);
-            return exec_cmd(&(clist->commands[i]));
+            rc = match_command(clist->commands[0].argv[0]);
+            if (rc != BI_NOT_BI) {
+                rc = exec_built_in_cmd(&(clist->commands[i]));
+                exit(rc);
+            }
+            else {
+                execvp(clist->commands[i].argv[0], clist->commands[i].argv);
+                exit(errno);
+            }
         }
     }
-
+    
     // Parent process: close all pipe ends
     for (int i = 0; i < clist->num - 1; i++) {
         close(pipes[i][0]);
@@ -348,9 +433,15 @@ int execute_pipeline(command_list_t *clist) {
 
     // Wait for all children
     for (int i = 0; i < clist->num; i++) {
-        waitpid(pids[i], NULL, 0);
+        waitpid(pids[i], &rc, 0);
+        if (WIFEXITED(rc)) {
+            rc = WEXITSTATUS(rc);
+            if (rc != 0) printf("%s\n", strerror(rc));
+        }
+        else if (WIFSIGNALED(rc)) rc = WTERMSIG(rc);
+        last_rc = rc;
     }
 
-    return OK; // TEMP
+    return last_rc;
 }
 

@@ -22,7 +22,7 @@ EOF
     stripped_output=$(echo "$output" | tr -d '[:space:]')
 
     # Expected output with all whitespace removed for easier matching
-    expected_output="dsh3>cmdloopreturned0"
+    expected_output="dsh3>exiting...cmdloopreturned0"
 
     # These echo commands will help with debugging and will only print
     #if the test fails
