@@ -16,6 +16,12 @@ typedef struct command
     char args[ARG_MAX];
 } command_t;
 
+typedef struct redirection
+{
+    char mode;
+    char source[ARG_MAX];
+} redirection_t;
+
 typedef struct cmd_buff
 {
     int  argc;
@@ -81,8 +87,6 @@ Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd);
 int exec_local_cmd_loop();
 int exec_cmd(cmd_buff_t *cmd);
 int execute_pipeline(command_list_t *clist);
-
-
 
 
 //output constants
