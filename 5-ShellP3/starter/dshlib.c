@@ -158,20 +158,14 @@ char* extract_tok_from_quotes(char **saveptr) {
 }
 
 char not_in_quotes(char* left_bound, char* currentLoc) {
-    //printf("Init Left Bound: %u\n", left_bound);
-    //printf("Delim Loc: %u\n", currentLoc);
+    if (currentLoc == NULL) return 0;
     while (left_bound != NULL && left_bound < currentLoc) {
-        //printf("Loop can run\n");
         left_bound = search_for_quotes(left_bound);
-        //printf("Left Bound #1: %u\n", left_bound);
-        if (left_bound == NULL) return 1;
+        if (left_bound == NULL) return 0;
         left_bound = find_end_quote(left_bound, *left_bound);
-        //printf("Left Bound #2: %u\n", left_bound);
-        left_bound ++;
+        if (left_bound != NULL) left_bound++;
     }
-    //printf("Leave loop\n");
-    if (left_bound == NULL) return 0;
-    else return 1;
+    return 1;
 }
 
 char* cmdtok(char** saveptr, char delim) {
@@ -181,20 +175,27 @@ char* cmdtok(char** saveptr, char delim) {
     }
     char* delimLoc = strchr(*saveptr, delim);
     if (delimLoc != NULL) {
-        while (not_in_quotes(strStart, delimLoc) == 0) {
-            //printf("check");
+        while (not_in_quotes(strStart, delimLoc) == 1) {
             if (*delimLoc != '\0') {
-                //printf("test1");
                 delimLoc++;
                 *saveptr = delimLoc;
-                //printf("test2");
                 delimLoc = strchr(*saveptr, delim);
-                //printf("test");
+                if (delimLoc == NULL) break;
             }
             else return strStart;
         }
-        *delimLoc = '\0';
-        *saveptr = delimLoc + 1;
+        if (delimLoc == NULL) {
+            delimLoc = *saveptr;
+            while(*delimLoc != '\0') {
+                delimLoc++;
+            }
+            *saveptr = delimLoc;
+        }
+        else {
+            *delimLoc = '\0';
+            *saveptr = delimLoc + 1;
+        }
+        
     }
     else {
         delimLoc = *saveptr;
@@ -212,19 +213,15 @@ int build_cmd_list(char *cmd_line, command_list_t *clist) {
     char* saveptr = cmd_line;
     char* currentCommand;
 
-    //currentCommand = cmdtok(&saveptr, PIPE_CHAR);
-    currentCommand = strtok_r(cmd_line, PIPE_STRING, &saveptr);
+    currentCommand = cmdtok(&saveptr, PIPE_CHAR);
+    //currentCommand = strtok_r(cmd_line, PIPE_STRING, &saveptr);
     while (currentCommand != NULL) {
         cmdNum ++;
         if (cmdNum > CMD_MAX) return ERR_TOO_MANY_COMMANDS;
         rc = build_cmd_buff(currentCommand, &(clist->commands[cmdNum - 1]));
-        //printf("Command %d: ", cmdNum);
-        //for (int i = 0; i < clist->commands[cmdNum - 1].argc; i++) 
-        //    printf("%s ", clist->commands[cmdNum - 1].argv[i]);
-        //printf("\n");
         if (rc != OK && rc != WARN_NO_CMDS) return rc;
-        //currentCommand = cmdtok(&saveptr, PIPE_CHAR);
-        currentCommand = strtok_r(NULL, PIPE_STRING, &saveptr);
+        currentCommand = cmdtok(&saveptr, PIPE_CHAR);
+        //currentCommand = strtok_r(NULL, PIPE_STRING, &saveptr);
     }
 
     clist->num = cmdNum;
