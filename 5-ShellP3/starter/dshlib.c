@@ -410,9 +410,10 @@ int execute_pipeline(command_list_t *clist) {
             }
 
             // Execute command
-            rc = match_command(clist->commands[0].argv[0]);
+            rc = match_command(clist->commands[i].argv[0]);
             if (rc != BI_NOT_BI) {
                 rc = exec_built_in_cmd(&(clist->commands[i]));
+                if (rc == OK_EXIT) rc = OK;
                 exit(rc);
             }
             else {
