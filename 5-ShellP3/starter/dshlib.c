@@ -78,7 +78,7 @@ int exec_local_cmd_loop()
 
             if (rc == OK) {
                 if (clist.num > 1) rc = execute_pipeline(&clist);
-                else rc = exec_cmd(&(clist.commands[0]));
+                else if (clist.num == 1) rc = exec_cmd(&(clist.commands[0]));
                 if (rc == OK_EXIT) return OK;
             }
 
