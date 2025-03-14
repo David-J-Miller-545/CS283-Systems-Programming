@@ -119,6 +119,8 @@ int exec_remote_cmd_loop(char *address, int port)
  * 
  */
 int start_client(char *server_ip, int port){
+    struct sockaddr_in addr;
+    
     return WARN_RDSH_NOT_IMPL;
 }
 
