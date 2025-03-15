@@ -92,6 +92,83 @@
  */
 int exec_remote_cmd_loop(char *address, int port)
 {
+    int rc = OK;
+    int client_socket = start_client(address, port);
+
+    if (rc == ERR_RDSH_CLIENT) return ERR_RDSH_CLIENT;
+
+    char* cmd_buff = malloc(CMD_MAX * SH_CMD_MAX);
+    if (cmd_buff == NULL) return ERR_MEMORY;
+
+    char* recv_buff = malloc(RDSH_COMM_BUFF_SZ);
+    if (recv_buff == NULL) return ERR_MEMORY;
+
+    int rc = 0;
+    command_list_t clist;
+
+    while(1){
+        printf("%s", SH_PROMPT);
+        if (fgets(cmd_buff, ARG_MAX, stdin) == NULL){
+            printf("\n");
+            break;
+        }
+        else {
+            cmd_buff[strcspn(cmd_buff,"\n")] = '\0';
+
+            rc = send(client_socket, &RDSH_EOF_CHAR, 1, 0);
+
+            int  recv_size;         //the +1 includes the NULL byte
+            int  is_last_chunk;     //boolean to see if this is the last chunk
+            char eof_char = RDSH_EOF_CHAR;   //using the null character in this demo, however
+                                    //you can set this to RDSH_EOF_CHAR, which is
+                                    //0x04, or the linux EOF character.  We define
+                                    //RDSH_EOF_CHAR for you in rshlib.h.  For example,
+                                    //if all we would need to do is to change:
+                                    //
+                                    // char eof_char = '\0'; to
+                                    // char eof_char = RDSH_EOF_CHAR;
+                                    //
+                                    // to handle the stream of data that the server will
+                                    // send back to the client.
+
+            //note that RDSH_COMM_BUFF_SZ is a constant that we provide in rshlib.h
+            
+
+            while (1) {
+                recv_size= recv(client_socket, recv_buff, RDSH_COMM_BUFF_SZ,0);
+                
+                //we got recv_size bytes
+                if (recv_size < 0){
+                    break;
+                }
+                if (recv_size == 0){
+                    return ERR_RDSH_COMMUNICATION;
+                }
+
+                //At this point we have some data, lets see if this is the last chunk
+                is_last_chunk = ((char)recv_buff[recv_size-1] == eof_char) ? 1 : 0;
+
+                if (is_last_chunk){
+                    recv_buff[recv_size-1] = '\0'; //remove the marker and replace with a null
+                                            //this makes string processing easier
+                }
+
+                //Now the data in buff is guaranteed to be null-terminated.  Handle in,
+                //in our shell client we will just be printing it out. Note that we are
+                //using a special printf marker "%.*s" that will print out the characters
+                //until it encounters a null byte or prints out a max of recv_size
+                //characters, whatever happens first. 
+                printf("%.*s", (int)recv_size, recv_buff);
+
+                //If we are not at the last chunk, loop back and receive some more, if it
+                //is the last chunk break out of the loop
+                if (is_last_chunk) break;
+            }
+        }
+    }
+
+    
+
     return WARN_RDSH_NOT_IMPL;
 }
 
@@ -120,8 +197,30 @@ int exec_remote_cmd_loop(char *address, int port)
  */
 int start_client(char *server_ip, int port){
     struct sockaddr_in addr;
-    
-    return WARN_RDSH_NOT_IMPL;
+    int data_socket;
+    int rc;
+
+    /* Create local socket. */
+
+    data_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (data_socket == -1) {
+        perror("socket");
+        return ERR_RDSH_CLIENT;
+    }
+
+    memset(&addr, 0, sizeof(struct sockaddr_in));
+
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr(server_ip);
+    addr.sin_port = htons(port);
+
+    rc = connect (data_socket, (const struct sockaddr *) &addr, sizeof(struct sockaddr_in));
+    if (rc == -1) {
+        fprintf(stderr, "The server is down.\n");
+        return ERR_RDSH_CLIENT;
+    }
+
+    return data_socket;
 }
 
 /*

@@ -17,6 +17,7 @@
 #include "dshlib.h"
 #include "rshlib.h"
 
+int last_rc = OK;
 
 /*
  * start_server(ifaces, port, is_threaded)
@@ -115,7 +116,38 @@ int stop_server(int svr_socket){
  * 
  */
 int boot_server(char *ifaces, int port){
-    return WARN_RDSH_NOT_IMPL;
+    int rc;
+    int svr_socket;
+
+    struct sockaddr_in addr;
+
+    /* Create local socket. */
+    svr_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (svr_socket == -1) {
+        perror("socket");
+        return ERR_RDSH_SERVER;
+    }
+
+    int enable=1;
+    setsockopt(svr_socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
+
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr(ifaces);
+    addr.sin_port = htons(port);
+
+    rc = bind(svr_socket, (const struct sockaddr *) &addr, sizeof(struct sockaddr_in));
+    if (rc == -1) {
+        perror("accept");
+        return ERR_RDSH_SERVER;
+    }
+
+    rc = listen(svr_socket, 20);
+    if (rc == -1) {
+        perror("listen");
+        return ERR_RDSH_SERVER;
+    }
+    
+    return svr_socket;
 }
 
 /*
@@ -160,6 +192,16 @@ int boot_server(char *ifaces, int port){
  * 
  */
 int process_cli_requests(int svr_socket){
+    int rc = OK;
+    
+    int TMP_NOT_IMPL;
+    
+    while (1) {
+        rc = exec_client_requests(TMP_NOT_IMPL);
+
+        if (rc == OK_EXIT) break;
+    }
+    
     return WARN_RDSH_NOT_IMPL;
 }
 
@@ -205,6 +247,81 @@ int process_cli_requests(int svr_socket){
  *                or receive errors. 
  */
 int exec_client_requests(int cli_socket) {
+    int rc = OK;
+    char *buff;
+    int  recv_size;         //the +1 includes the NULL byte
+    int  is_last_chunk;     //boolean to see if this is the last chunk
+    char eof_char = '\0';   //using the null character in this demo, however
+                            //you can set this to RDSH_EOF_CHAR, which is
+                            //0x04, or the linux EOF character.  We define
+                            //RDSH_EOF_CHAR for you in rshlib.h.  For example,
+                            //if all we would need to do is to change:
+                            //
+                            // char eof_char = '\0'; to
+                            // char eof_char = RDSH_EOF_CHAR;
+                            //
+                            // to handle the stream of data that the server will
+                            // send back to the client.
+
+    //note that RDSH_COMM_BUFF_SZ is a constant that we provide in rshlib.h
+    buff = malloc(RDSH_COMM_BUFF_SZ);
+
+
+
+    // allocate-recv-buffer
+    while (1) {
+        recv_size= recv(socket, buff, RDSH_COMM_BUFF_SZ,0);
+
+        //we got recv_size bytes
+        if (recv_size < 0){
+            return ERR_RDSH_COMMUNICATION;
+        }
+        else if (recv_size == 0){
+            return OK;
+        }
+
+        //At this point we have some data, lets see if this is the last chunk
+        is_last_chunk = ((char)buff[recv_size-1] == eof_char) ? 1 : 0;
+
+        if (is_last_chunk){
+            buff[recv_size-1] = '\0'; //remove the marker and replace with a null
+                                    //this makes string processing easier
+        }
+
+        //If we are not at the last chunk, loop back and receive some more, if it
+        //is the last chunk break out of the loop
+        if (is_last_chunk) {
+            /*
+            build_cmd_list();
+            rsh_execute_pipeline();
+            send_message_eof();
+
+            if (cmd == EXIT) break;
+            if (cmd == STOPSERVER) break;
+            
+            free-recv-buffer
+            close socket
+            */
+            
+            command_list_t clist;
+           
+            rc = build_cmd_list(buff, &clist);
+
+            if (rc == OK) {
+                rc = rsh_execute_pipeline(cli_socket, &clist);
+
+                send_message_eof(cli_socket);
+
+                if (rc == OK_EXIT) return OK_EXIT;
+                if (rc == STOP_SERVER_SC) return STOP_SERVER_SC;
+            }
+
+            free_cmd_list(&clist);
+
+            close(cli_socket);
+        }
+    } 
+    
     return WARN_RDSH_NOT_IMPL;
 }
 
@@ -223,7 +340,15 @@ int exec_client_requests(int cli_socket) {
  *           we were unable to send the EOF character. 
  */
 int send_message_eof(int cli_socket){
-    return WARN_RDSH_NOT_IMPL;
+    int bytes_sent;
+
+    //send one character, the EOF character.
+    bytes_sent = send(cli_socket, &RDSH_EOF_CHAR, 1, 0);
+    if (bytes_sent == 1){
+        return OK;
+    }
+
+    return ERR_RDSH_COMMUNICATION;
 }
 
 /*
@@ -245,7 +370,16 @@ int send_message_eof(int cli_socket){
  *           we were unable to send the message followed by the EOF character. 
  */
 int send_message_string(int cli_socket, char *buff){
-    return WARN_RDSH_NOT_IMPL;
+    int send_len = strlen(buff) + 1;    //the +1 includes the NULL byte
+    int bytes_sent;
+
+    //send the command including the null byte
+    bytes_sent = send(cli_socket, buff, send_len, 0);
+    if (bytes_sent == 1){
+        return OK;
+    }
+
+    return ERR_RDSH_COMMUNICATION;
 }
 
 
