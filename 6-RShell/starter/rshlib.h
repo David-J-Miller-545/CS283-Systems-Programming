@@ -67,6 +67,18 @@ int process_cli_requests(int svr_socket);
 int exec_client_requests(int cli_socket);
 int rsh_execute_pipeline(int socket_fd, command_list_t *clist);
 
+typedef struct rsh_thread_data{
+    int cli_socket;
+    int svr_socket;
+}rsh_thread_data_t;
+
+void rsh_thread_handler(void* args);
+
+
+
+int rsh_exec_cmd(cmd_buff_t *cmd); // new
+
+
 // SEE COMMENTS IN THE CODE, THESE ARE OPTIONAL IN CASE YOU WANT TO PROVIDE
 // SUPPORT FOR BUILT-IN FUNCTIONS DIFFERENTLY 
 Built_In_Cmds rsh_match_command(const char *input);

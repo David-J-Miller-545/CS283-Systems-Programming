@@ -6,8 +6,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/un.h>
 #include <fcntl.h>
+#include <pthread.h>
+
 
 //INCLUDES for extra credit
 //#include <signal.h>
@@ -18,6 +21,7 @@
 #include "rshlib.h"
 
 int last_rc = OK;
+int is_threaded_server = 0;
 
 /*
  * start_server(ifaces, port, is_threaded)
@@ -55,6 +59,11 @@ int start_server(char *ifaces, int port, int is_threaded){
     //TODO:  If you are implementing the extra credit, please add logic
     //       to keep track of is_threaded to handle this feature
     //
+
+    if (is_threaded) {
+        is_threaded_server = 1;
+        printf("Labeled Server as threaded.");
+    }
 
     svr_socket = boot_server(ifaces, port);
     if (svr_socket < 0){
@@ -124,7 +133,6 @@ int boot_server(char *ifaces, int port){
     /* Create local socket. */
     svr_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (svr_socket == -1) {
-        perror("socket");
         return ERR_RDSH_SERVER;
     }
 
@@ -137,13 +145,11 @@ int boot_server(char *ifaces, int port){
 
     rc = bind(svr_socket, (const struct sockaddr *) &addr, sizeof(struct sockaddr_in));
     if (rc == -1) {
-        perror("accept");
         return ERR_RDSH_SERVER;
     }
 
     rc = listen(svr_socket, 20);
     if (rc == -1) {
-        perror("listen");
         return ERR_RDSH_SERVER;
     }
     
@@ -193,16 +199,52 @@ int boot_server(char *ifaces, int port){
  */
 int process_cli_requests(int svr_socket){
     int rc = OK;
-    
-    int TMP_NOT_IMPL;
+    int cli_socket;
     
     while (1) {
-        rc = exec_client_requests(TMP_NOT_IMPL);
+        cli_socket = accept(svr_socket, NULL, NULL);
+        if (cli_socket == -1) {
+            return ERR_RDSH_SERVER;
+        }
+        printf("Accepted New Client...\n");
+        
+        if (is_threaded_server) {
+            pthread_t thread_id;
+            rsh_thread_data_t thread_data;
+            thread_data.cli_socket = cli_socket;
+            thread_data.svr_socket = svr_socket;
+            if(pthread_create( &thread_id, NULL, rsh_thread_handler, (void*)&thread_data) < 0) {
+                perror("could not create thread");
+                return ERR_RDSH_SERVER;
+            }
+            printf("Created New Thread...\n");
+        }
+        else {
+            rc = exec_client_requests(cli_socket);
 
-        if (rc == OK_EXIT) break;
+            
+            if (rc == STOP_SERVER_SC) {
+                printf(RCMD_MSG_SVR_STOP_REQ);
+                break;
+            }
+            printf(RCMD_MSG_CLIENT_EXITED);
+        }
+        
     }
     
-    return WARN_RDSH_NOT_IMPL;
+    return OK;
+}
+
+
+void rsh_thread_handler(void* args) {
+    rsh_thread_data_t* thread_data = (rsh_thread_data_t*) args;
+    int rc = exec_client_requests(thread_data->cli_socket);
+
+    if (rc == STOP_SERVER_SC) {
+        printf(RCMD_MSG_SVR_STOP_REQ);
+        stop_server(thread_data->svr_socket);
+        exit(STOP_SERVER_SC);
+    }
 }
 
 /*
@@ -270,7 +312,7 @@ int exec_client_requests(int cli_socket) {
 
     // allocate-recv-buffer
     while (1) {
-        recv_size= recv(socket, buff, RDSH_COMM_BUFF_SZ,0);
+        recv_size= recv(cli_socket, buff, RDSH_COMM_BUFF_SZ,0);
 
         //we got recv_size bytes
         if (recv_size < 0){
@@ -290,39 +332,31 @@ int exec_client_requests(int cli_socket) {
 
         //If we are not at the last chunk, loop back and receive some more, if it
         //is the last chunk break out of the loop
-        if (is_last_chunk) {
-            /*
-            build_cmd_list();
-            rsh_execute_pipeline();
-            send_message_eof();
-
-            if (cmd == EXIT) break;
-            if (cmd == STOPSERVER) break;
-            
-            free-recv-buffer
-            close socket
-            */
-            
+        if (is_last_chunk) {            
             command_list_t clist;
            
             rc = build_cmd_list(buff, &clist);
 
             if (rc == OK) {
                 rc = rsh_execute_pipeline(cli_socket, &clist);
-
-                send_message_eof(cli_socket);
-
-                if (rc == OK_EXIT) return OK_EXIT;
-                if (rc == STOP_SERVER_SC) return STOP_SERVER_SC;
             }
 
-            free_cmd_list(&clist);
+            send_message_eof(cli_socket);
 
-            close(cli_socket);
+            if (rc == STOP_SERVER_SC || rc == OK_EXIT) break;
+
+
+            free_cmd_list(&clist);
         }
     } 
+
+
+    close(cli_socket);
+    free(buff);
     
-    return WARN_RDSH_NOT_IMPL;
+    if (rc == STOP_SERVER_SC || rc == OK_EXIT) return rc;
+
+    return OK;
 }
 
 /*
@@ -422,7 +456,137 @@ int send_message_string(int cli_socket, char *buff){
  *                  get this value. 
  */
 int rsh_execute_pipeline(int cli_sock, command_list_t *clist) {
-    return WARN_RDSH_NOT_IMPL;
+    int pipes[clist->num - 1][2];  // Array of pipes
+    pid_t pids[clist->num];        // Array to store process IDs
+    int rc = OK;
+
+    if (clist->num == 1) {
+        // Save correct fds to temp ones
+        int new_stdin = dup(STDIN_FILENO);
+        int new_stdout = dup(STDOUT_FILENO);
+        int new_stderr = dup(STDERR_FILENO);
+
+        // Copy the sockets over to std fds
+        dup2(cli_sock, STDIN_FILENO);
+        dup2(cli_sock, STDOUT_FILENO);
+        dup2(cli_sock, STDERR_FILENO);
+
+        rc = rsh_exec_cmd(&(clist->commands[0]));
+
+        // Save the temp fds back to the std fds
+        dup2(new_stdin, STDIN_FILENO);
+        dup2(new_stdout, STDOUT_FILENO);
+        dup2(new_stderr, STDERR_FILENO);
+
+        // Close the temp fds
+        close(new_stdin);
+        close(new_stdout);
+        close(new_stderr);
+
+
+        last_rc = rc;
+    }
+    else {
+        // Create all necessary pipes
+        for (int i = 0; i < clist->num - 1; i++) {
+            if (pipe(pipes[i]) == -1) {
+                perror("pipe");
+                return ERR_EXEC_CMD;
+            }
+        }
+
+        // Create processes for each command
+        for (int i = 0; i < clist->num; i++) {
+            pids[i] = fork();
+            if (pids[i] == -1) {
+                perror("fork");
+                return ERR_EXEC_CMD;
+            }
+
+            if (pids[i] == 0) {  // Child process
+                // Set up input pipe for all except first process
+                if (i > 0) {
+                    dup2(pipes[i-1][0], STDIN_FILENO);
+                }
+
+                // Set up output pipe for all except last process
+                if (i < clist->num - 1) {
+                    dup2(pipes[i][1], STDOUT_FILENO);
+                    dup2(pipes[i][1], STDERR_FILENO);
+                }
+
+                if (i == clist->num) {
+                    dup2(cli_sock, STDIN_FILENO);
+                }
+
+                // Close all pipe ends in child
+                for (int j = 0; j < clist->num - 1; j++) {
+                    close(pipes[j][0]);
+                    close(pipes[j][1]);
+                }
+
+                // Execute command
+                rc = rsh_match_command(clist->commands[i].argv[0]);
+                if (rc != BI_NOT_BI) {
+                    rc = rsh_built_in_cmd(&(clist->commands[i]));
+                    if (rc == OK_EXIT) rc = OK;
+                    exit(rc);
+                }
+                else {
+                    execvp(clist->commands[i].argv[0], clist->commands[i].argv);
+                    exit(errno);
+                }
+            }
+        }
+        
+        // Parent process: close all pipe ends
+        for (int i = 0; i < clist->num - 1; i++) {
+            close(pipes[i][0]);
+            close(pipes[i][1]);
+        }
+
+        // Wait for all children
+        for (int i = 0; i < clist->num; i++) {
+            waitpid(pids[i], &rc, 0);
+            if (WIFEXITED(rc)) {
+                rc = WEXITSTATUS(rc);
+                if (rc != 0) printf("%s\n", strerror(rc));
+            }
+            else if (WIFSIGNALED(rc)) rc = WTERMSIG(rc);
+            last_rc = rc;
+        }
+    }
+
+    return last_rc;
+}
+
+
+int rsh_exec_cmd(cmd_buff_t *cmd) {
+    int rc = rsh_match_command(cmd->argv[0]);
+    if (rc != BI_NOT_BI) {
+        rc = rsh_built_in_cmd(cmd);
+    }
+    else {
+        int PID = fork();
+        if (PID == -1) {
+            return ERR_MEMORY;
+        }
+        else if (PID == 0) {
+            execvp(cmd->argv[0], cmd->argv);
+            exit(errno);
+        }
+        else {
+            waitpid(PID, &rc, 0);
+            if (WIFEXITED(rc)) {
+                rc = WEXITSTATUS(rc);
+                if (rc != 0) printf("%s\n", strerror(rc));
+            }
+            else if (WIFSIGNALED(rc)) rc = WTERMSIG(rc);
+            last_rc = rc;
+        }
+    }
+    last_rc = rc;
+    return rc;
 }
 
 /**************   OPTIONAL STUFF  ***************/
@@ -460,7 +624,22 @@ int rsh_execute_pipeline(int cli_sock, command_list_t *clist) {
  */
 Built_In_Cmds rsh_match_command(const char *input)
 {
-    return BI_NOT_IMPLEMENTED;
+    if (strcmp(input, EXIT_CMD) == 0) {
+        return BI_CMD_EXIT;
+    }
+    else if (strcmp(input, "stop-server") == 0) {
+        return BI_CMD_STOP_SVR;
+    }
+    else if (strcmp(input, "dragon") == 0) {
+        return BI_CMD_DRAGON;
+    }
+    else if (strcmp(input, "cd") == 0) {
+        return BI_CMD_CD;
+    }
+    else if (strcmp(input, "rc") == 0) {
+        return BI_CMD_RC;
+    }
+    else return BI_NOT_BI; 
 }
 
 /*
@@ -497,5 +676,25 @@ Built_In_Cmds rsh_match_command(const char *input)
  */
 Built_In_Cmds rsh_built_in_cmd(cmd_buff_t *cmd)
 {
-    return BI_NOT_IMPLEMENTED;
+    Built_In_Cmds rc = rsh_match_command(cmd->argv[0]);
+    if (rc == BI_CMD_EXIT) {
+        printf("exiting...\n");
+        return OK_EXIT;
+    }
+    else if (rc == BI_CMD_STOP_SVR) {
+        return STOP_SERVER_SC;
+    }
+    else if (rc == BI_CMD_DRAGON) {
+        return OK;
+    }
+    else if (rc == BI_CMD_CD) {
+        if (cmd->argc == 2) {
+            rc = chdir(cmd->argv[1]);
+            if (rc == -1) return ERR_CMD_ARGS_BAD;
+            else return OK;
+        }
+    }
+    else if (rc == BI_CMD_RC) {
+        printf("%d\n", last_rc);
+    }
 }

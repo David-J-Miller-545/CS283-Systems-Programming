@@ -95,16 +95,13 @@ int exec_remote_cmd_loop(char *address, int port)
     int rc = OK;
     int client_socket = start_client(address, port);
 
-    if (rc == ERR_RDSH_CLIENT) return ERR_RDSH_CLIENT;
+    if (client_socket == ERR_RDSH_CLIENT) return ERR_RDSH_CLIENT;
 
     char* cmd_buff = malloc(CMD_MAX * SH_CMD_MAX);
     if (cmd_buff == NULL) return ERR_MEMORY;
 
     char* recv_buff = malloc(RDSH_COMM_BUFF_SZ);
     if (recv_buff == NULL) return ERR_MEMORY;
-
-    int rc = 0;
-    command_list_t clist;
 
     while(1){
         printf("%s", SH_PROMPT);
@@ -115,7 +112,12 @@ int exec_remote_cmd_loop(char *address, int port)
         else {
             cmd_buff[strcspn(cmd_buff,"\n")] = '\0';
 
-            rc = send(client_socket, &RDSH_EOF_CHAR, 1, 0);
+            int len = strlen(cmd_buff) + 1;
+            rc = send(client_socket, cmd_buff, len, 0);
+            if (rc == -1) {
+                perror("header write error");
+                return ERR_RDSH_COMMUNICATION;
+            }
 
             int  recv_size;         //the +1 includes the NULL byte
             int  is_last_chunk;     //boolean to see if this is the last chunk
@@ -153,15 +155,8 @@ int exec_remote_cmd_loop(char *address, int port)
                                             //this makes string processing easier
                 }
 
-                //Now the data in buff is guaranteed to be null-terminated.  Handle in,
-                //in our shell client we will just be printing it out. Note that we are
-                //using a special printf marker "%.*s" that will print out the characters
-                //until it encounters a null byte or prints out a max of recv_size
-                //characters, whatever happens first. 
                 printf("%.*s", (int)recv_size, recv_buff);
 
-                //If we are not at the last chunk, loop back and receive some more, if it
-                //is the last chunk break out of the loop
                 if (is_last_chunk) break;
             }
         }
